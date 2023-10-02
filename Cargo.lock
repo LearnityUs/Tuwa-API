@@ -319,6 +319,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "dotenv",
+ "log",
+ "orm",
+ "pretty_env_logger",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2807,21 +2822,6 @@ dependencies = [
  "thread_local",
  "tracing",
  "tracing-core",
-]
-
-[[package]]
-name = "tuwa-api"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "dotenv",
- "log",
- "orm",
- "pretty_env_logger",
- "sea-orm",
- "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]
