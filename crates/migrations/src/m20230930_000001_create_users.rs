@@ -25,7 +25,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Users::CreatedAt)
                             .date_time()
                             .default(Expr::current_timestamp())
-                            .not_null()
+                            .not_null(),
                     )
                     .to_owned(),
             )
