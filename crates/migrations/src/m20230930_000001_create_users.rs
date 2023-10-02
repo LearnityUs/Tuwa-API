@@ -21,6 +21,12 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
+                    .col(
+                        ColumnDef::new(Users::CreatedAt)
+                            .date_time()
+                            .default(Expr::current_timestamp())
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await
@@ -37,4 +43,5 @@ impl MigrationTrait for Migration {
 enum Users {
     Table,
     Id,
+    CreatedAt,
 }
