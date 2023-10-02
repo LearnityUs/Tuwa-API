@@ -81,7 +81,7 @@ sea-orm-cli migrate up -d ./crates/migrations/
 Finaly, we will want to generate the code for the new table. To do this, run the following commands:
 
 ```bash
-rm -rf ./crates/migrations/src
+rm -rf ./crates/orm/src
 sea-orm-cli generate entity --lib -o ./crates/orm/src
 ```
 
@@ -152,4 +152,4 @@ Yay! We did it again!
 
 ### GitLab Database Migrations
 
-We recommend looking at the [GitLab Database Migrations](https://docs.gitlab.com/ee/development/database/) documentation for more information on how to make backwards compatible migrations.
+We recommend looking at the [GitLab Database Migrations](https://docs.gitlab.com/ee/development/database/) documentation for more information on how to make backwards compatible migrations. Please note, however, that not everything in the docs are aplicable to this project. 
