@@ -7,7 +7,9 @@ COPY . .
 RUN cargo install --path ./crates/app/
 
 # Runner
-FROM alpine:latest
+FROM ubuntu:latest
 COPY --from=builder /usr/local/cargo/bin/app /usr/local/bin/app
+
+EXPOSE 8080
 
 CMD ["app"]
