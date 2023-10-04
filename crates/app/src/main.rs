@@ -1,18 +1,20 @@
 #[macro_use]
 extern crate log;
-use actix_web::{web, App, HttpServer, HttpResponse, http};
+use actix_web::{http, web, App, HttpResponse, HttpServer};
 
 use crate::v1::create_v1_service;
 
 mod v1;
 
 async fn not_found() -> actix_web::HttpResponse {
-    HttpResponse::BadRequest().content_type(http::header::ContentType::plaintext()).body("Rarw! This page was not found!")
+    HttpResponse::BadRequest()
+        .content_type(http::header::ContentType::plaintext())
+        .body("Rarw! This page was not found!")
 }
 
 async fn server() -> Result<(), String> {
     // Get the port from the environment
-    let port = std::env::var("PORT").unwrap_or("5000".to_string());
+    let port = std::env::var("PORT").unwrap_or("8080".to_string());
     let port = port.parse::<u16>().unwrap_or(5000);
 
     // Get the cors allow site from the environment
@@ -20,17 +22,14 @@ async fn server() -> Result<(), String> {
 
     info!("Starting server on port {}", port);
 
-    let server =
-        HttpServer::new(|| App::new()
-            .service(
-                web::scope("/api")
-                    .service(create_v1_service())
-            )
+    let server = HttpServer::new(|| {
+        App::new()
+            .service(web::scope("/api").service(create_v1_service()))
             .default_service(web::route().to(not_found))
-        )
-            .bind(("127.0.0.1", port))
-            .map_err(|e| format!("Failed to bind server: {}", e))?
-            .run();
+    })
+    .bind(("0.0.0.0", port))
+    .map_err(|e| format!("Failed to bind server: {}", e))?
+    .run();
 
     server.await.map_err(|e| format!("Server failed: {}", e))?;
 
