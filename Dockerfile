@@ -1,5 +1,5 @@
 # Builder
-FROM rust:alpine as builder
+FROM rust:buster as builder
 
 WORKDIR /usr/runner/app
 COPY . .
