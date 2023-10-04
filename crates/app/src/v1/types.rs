@@ -39,6 +39,7 @@ where
         let mut response = match self {
             ResponseData::Success(_) => actix_web::HttpResponse::Ok(),
             ResponseData::Error(error) => match error.error {
+                ErrorResponseStatus::NotFoundError => actix_web::HttpResponse::NotFound(),
                 ErrorResponseStatus::AuthenticationError => actix_web::HttpResponse::Unauthorized(),
                 ErrorResponseStatus::PermissionError => actix_web::HttpResponse::Forbidden(),
                 ErrorResponseStatus::RequestError => actix_web::HttpResponse::BadRequest(),
@@ -64,6 +65,7 @@ where
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ErrorResponseStatus {
+    NotFoundError,
     AuthenticationError,
     PermissionError,
     RequestError,
