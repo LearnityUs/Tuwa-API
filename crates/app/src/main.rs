@@ -12,7 +12,7 @@ async fn not_found() -> actix_web::HttpResponse {
 
 async fn server() -> Result<(), String> {
     // Get the port from the environment
-    let port = std::env::var("PORT").unwrap_or("5000".to_string());
+    let port = std::env::var("PORT").unwrap_or("8080".to_string());
     let port = port.parse::<u16>().unwrap_or(5000);
 
     // Get the cors allow site from the environment
@@ -28,7 +28,7 @@ async fn server() -> Result<(), String> {
             )
             .default_service(web::route().to(not_found))
         )
-            .bind(("127.0.0.1", port))
+            .bind(("0.0.0.0", port))
             .map_err(|e| format!("Failed to bind server: {}", e))?
             .run();
 
