@@ -22,6 +22,18 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
+                        ColumnDef::new(Users::IsAdmin)
+                            .boolean()
+                            .default(Expr::value(false))
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Users::IsRoot)
+                            .boolean()
+                            .default(Expr::value(false))
+                            .not_null(),
+                    )
+                    .col(
                         ColumnDef::new(Users::CreatedAt)
                             .date_time()
                             .default(Expr::current_timestamp())
@@ -43,5 +55,7 @@ impl MigrationTrait for Migration {
 enum Users {
     Table,
     Id,
+    IsAdmin,
+    IsRoot,
     CreatedAt,
 }
