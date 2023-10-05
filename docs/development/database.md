@@ -87,6 +87,8 @@ sea-orm-cli generate entity --lib -o ./crates/orm/src
 
 ## Migration Backwards Compatibility
 
+> **⚠ Warning:** It has not been decided if we will use this method of migration. This section is here for reference only.
+
 When making changes to the database schema, you must ensure that the changes are backwards compatible. This means that the new schema must be compatible with the old code. This allows us to have zero downtime deployments.
 
 Migrating the database will normally be done in two steps. First, we will have a backwards compatible schema then we will remove the backwards compatibility after the new code is deployed.

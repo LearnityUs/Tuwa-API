@@ -17,10 +17,12 @@ where
     Data: Serialize,
     Error: Serialize,
 {
+    /// If the request was successful, return a success response.
     pub fn success(data: Data) -> Self {
         ResponseData::Success(SuccessResponseData { data })
     }
 
+    /// If the request was unsuccessful, return an error response.
     pub fn error(error: Error, message: Option<String>, status: ErrorResponseStatus) -> Self {
         ResponseData::Error(ErrorResponseData {
             error: status,
@@ -29,22 +31,27 @@ where
         })
     }
 
+    /// Convert the response to a JSON string.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(&self)
     }
 
+    /// Convert the response to an actix_web::HttpResponse.
     pub fn into_response(self) -> actix_web::HttpResponse {
         let body = self.to_json().unwrap();
 
         let mut response = match self {
             ResponseData::Success(_) => actix_web::HttpResponse::Ok(),
             ResponseData::Error(error) => match error.error {
-                ErrorResponseStatus::NotFoundError => actix_web::HttpResponse::NotFound(),
-                ErrorResponseStatus::AuthenticationError => actix_web::HttpResponse::Unauthorized(),
-                ErrorResponseStatus::PermissionError => actix_web::HttpResponse::Forbidden(),
-                ErrorResponseStatus::RequestError => actix_web::HttpResponse::BadRequest(),
-                ErrorResponseStatus::ServerError => actix_web::HttpResponse::InternalServerError(),
-                ErrorResponseStatus::OtherError => actix_web::HttpResponse::InternalServerError(),
+                ErrorResponseStatus::NotFound => actix_web::HttpResponse::NotFound(),
+                ErrorResponseStatus::AuthenticationRequired => {
+                    actix_web::HttpResponse::Unauthorized()
+                }
+                ErrorResponseStatus::CredentialsRequired => actix_web::HttpResponse::Forbidden(),
+                ErrorResponseStatus::BadRequest => actix_web::HttpResponse::BadRequest(),
+                ErrorResponseStatus::InternalServerError => {
+                    actix_web::HttpResponse::InternalServerError()
+                }
             },
         };
 
@@ -63,14 +70,17 @@ where
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub enum ErrorResponseStatus {
-    NotFoundError,
-    AuthenticationError,
-    PermissionError,
-    RequestError,
-    ServerError,
-    OtherError,
+    /// Self-explanatory; the requested resource was not found.
+    NotFound,
+    /// The user is not authenticated.
+    AuthenticationRequired,
+    /// The user is authenticated, but does not have the required credentials.
+    CredentialsRequired,
+    /// The request was malformed.
+    BadRequest,
+    /// The server encountered an internal error.
+    InternalServerError,
 }
 
 #[derive(Serialize)]
