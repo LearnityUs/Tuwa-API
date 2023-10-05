@@ -1,24 +1,46 @@
 #[macro_use]
 extern crate log;
-use actix_web::{http, web, App, HttpResponse, HttpServer};
+use actix_cors::Cors;
+use actix_web::{http, middleware, web, App, HttpResponse, HttpServer};
+use glob_match::glob_match;
 
-use crate::v1::create_v1_service;
+use crate::{database::create_db_client, v1::create_v1_service};
 
+mod database;
 mod v1;
 
 async fn not_found() -> actix_web::HttpResponse {
-    HttpResponse::BadRequest()
+    HttpResponse::NotFound()
         .content_type(http::header::ContentType::plaintext())
-        .body("Rarw! This page was not found!")
+        .body("Rawr 🦖! This page was not found!")
 }
 
 async fn server() -> Result<(), String> {
     // Get the port from the environment
-    let port = std::env::var("PORT").unwrap_or("8080".to_string());
-    let port = port.parse::<u16>().unwrap_or(5000);
+    let port = std::env::var("PORT")
+        .unwrap_or("8080".to_string())
+        .parse::<u16>()
+        .unwrap_or(5000);
 
-    // Get the cors allow site from the environment
-    // let cors_headers = std::env::var("CORS_SITE").ok();
+    // Database stuff
+    let max_connections = std::env::var("DB_MAX_CONNECTIONS")
+        .unwrap_or("10".to_string())
+        .parse::<usize>()
+        .unwrap_or(10);
+
+    let min_connections = std::env::var("DB_MIN_CONNECTIONS")
+        .unwrap_or("1".to_string())
+        .parse::<usize>()
+        .unwrap_or(1);
+
+    let connect_timeout = std::env::var("DB_CONNECT_TIMEOUT")
+        .unwrap_or("10".to_string())
+        .parse::<usize>()
+        .unwrap_or(10);
+
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    create_db_client(&db_url, max_connections, min_connections, connect_timeout).await?;
 
     info!("Starting server on port {}", port);
 
@@ -26,6 +48,19 @@ async fn server() -> Result<(), String> {
         App::new()
             .service(web::scope("/api").service(create_v1_service()))
             .default_service(web::route().to(not_found))
+            .wrap(middleware::Logger::default())
+            .wrap(middleware::Compress::default())
+            .wrap(Cors::default().allowed_origin_fn(|origin, _req_head| {
+                // Match the glob for cors origins
+                if let (Ok(cors_origin), Ok(origin_str)) =
+                    (std::env::var("CORS_ORIGIN"), origin.to_str())
+                {
+                    glob_match(&cors_origin, origin_str)
+                } else {
+                    // Better safe then sorry
+                    false
+                }
+            }))
     })
     .bind(("0.0.0.0", port))
     .map_err(|e| format!("Failed to bind server: {}", e))?
