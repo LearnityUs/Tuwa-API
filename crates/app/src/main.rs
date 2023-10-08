@@ -4,9 +4,12 @@ use actix_cors::Cors;
 use actix_web::{http, middleware, web, App, HttpResponse, HttpServer};
 use glob_match::glob_match;
 
-use crate::{database::create_db_client, v1::create_v1_service};
+use crate::{
+    database::create_db_client, schoology::create_schoology_client, v1::create_v1_service,
+};
 
 mod database;
+mod schoology;
 mod v1;
 
 async fn not_found() -> actix_web::HttpResponse {
@@ -41,6 +44,14 @@ async fn server() -> Result<(), String> {
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     create_db_client(&db_url, max_connections, min_connections, connect_timeout).await?;
+
+    // Schoology stuff
+    let consumer_key =
+        std::env::var("SCHOOLOGY_CONSUMER_KEY").expect("SCHOOLOGY_CONSUMER_KEY must be set");
+    let consumer_secret =
+        std::env::var("SCHOOLOGY_CONSUMER_SECRET").expect("SCHOOLOGY_CONSUMER_SECRET must be set");
+
+    create_schoology_client(consumer_key, consumer_secret).await?;
 
     info!("Starting server on port {}", port);
 

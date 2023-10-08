@@ -4,4 +4,5 @@ members = [
     "crates/app",
     "crates/migrations",
     "crates/orm",
+    "crates/schoology"
 ]
