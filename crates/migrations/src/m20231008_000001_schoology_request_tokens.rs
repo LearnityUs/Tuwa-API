@@ -1,6 +1,3 @@
-//! This migration creates the table `users`.
-//! The `users` table is used to mark the existence of a user.
-
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -12,31 +9,27 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Users::Table)
+                    .table(SchoologyRequestTokens::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Users::Id)
-                            .integer()
+                        ColumnDef::new(SchoologyRequestTokens::Id)
+                            .uuid()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(Users::IsAdmin)
-                            .boolean()
-                            .default(Expr::value(false))
+                        ColumnDef::new(SchoologyRequestTokens::Token)
+                            .string()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(Users::IsRoot)
-                            .boolean()
-                            .default(Expr::value(false))
+                        ColumnDef::new(SchoologyRequestTokens::TokenSecret)
+                            .string()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(Users::CreatedAt)
+                        ColumnDef::new(SchoologyRequestTokens::ExpiresAt)
                             .date_time()
-                            .default(Expr::current_timestamp())
                             .not_null(),
                     )
                     .to_owned(),
@@ -48,7 +41,11 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Users::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(SchoologyRequestTokens::Table)
+                    .to_owned(),
+            )
             .await?;
 
         Ok(())
@@ -56,10 +53,10 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-pub enum Users {
+enum SchoologyRequestTokens {
     Table,
     Id,
-    IsAdmin,
-    IsRoot,
-    CreatedAt,
+    Token,
+    TokenSecret,
+    ExpiresAt,
 }

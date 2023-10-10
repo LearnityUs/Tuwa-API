@@ -1,215 +1,114 @@
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
-use url::Url;
-use urlencoding;
-// TODO: we should prob switch to the secure version when it releases
-use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
-use uuid::Uuid;
+use reqwest::StatusCode;
+use serde::Deserialize;
+use serde_urlencoded;
 
-#[derive(Debug, Clone)]
-pub struct OAuth1AHeader {
-    /* Stuff for the signature */
-    /// The request method, e.g. "GET" or "POST"
-    pub request_method: String,
-    /// The full request URL, e.g. "https://api.schoology.com/v1/users/me"
-    pub request_url: String,
+use crate::{SchoologyClient, SchoologyError, SchoologyRequest};
 
-    /* OAuth 1.0a parameters */
-    /// Optional: OAuth 1.0a access token
-    pub oauth_token: Option<String>,
-    /// Optional: OAuth 1.0a token secret
-    pub oauth_token_secret: Option<String>,
-    /// OAuth 1.0a nonce
-    pub oauth_nonce: String,
-    /// OAuth 1.0a timestamp
-    pub oauth_timestamp: String,
+#[derive(Deserialize, Debug)]
+pub struct OauthRequestTokenResponse {
+    /// The oauth token
+    pub oauth_token: String,
+    /// The oauth token secret
+    pub oauth_token_secret: String,
+    /// The oauth token time to live
+    pub xoauth_token_ttl: usize,
 }
 
-impl OAuth1AHeader {
-    /// Creates a new OAuth 1.0a header
-    pub fn new(
-        request_method: String,
-        request_url: String,
-        oauth_token: Option<String>,
-        oauth_token_secret: Option<String>
-    ) -> Self {
-        Self {
-            request_method,
-            request_url,
-            oauth_token,
-            oauth_token_secret,
-            oauth_nonce: Uuid::new_v4().to_string(),
-            oauth_timestamp: chrono::Utc::now().timestamp().to_string(),
-        }
-    }
+/// Sends a request to the Schoology API to get an oauth request token
+pub async fn get_oauth_request_token(
+    client: &SchoologyClient,
+) -> Result<OauthRequestTokenResponse, SchoologyError> {
+    debug!("Getting oauth request token");
+    let response = client
+        .get("/v1/oauth/request_token", SchoologyRequest::new())
+        .await;
 
-    /// Gets the OAuth 1.0a header for the request
-    fn get_params(&self, consumer_key: &str) -> Vec<(String, String)> {
-        let mut params = vec![
-            ("oauth_consumer_key", consumer_key),
-            ("oauth_signature_method", "HMAC-SHA256"),
-            ("oauth_timestamp", &self.oauth_timestamp),
-            ("oauth_nonce", &self.oauth_nonce),
-            ("oauth_version", "1.0"),
-        ];
-
-        if let Some(token) = &self.oauth_token {
-            params.push(("oauth_token", token));
-        }
-
-        // Convert the parameters to owned strings
-        params
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect::<Vec<(String, String)>>()
-    }
-
-    /// You probably want `get_header` instead.
-    pub fn generate_signature(
-        &self,
-        request_method: &str,
-        url: &Url,
-        body_params: Option<Vec<(&str, &str)>>,
-        consumer_key: &str,
-        consumer_secret: &str,
-    ) -> String {
-        let mut params = self.get_params(consumer_key);
-
-        // Push any additional parameters
-        if let Some(p) = body_params {
-            params.extend(p.iter().map(|(k, v)| (k.to_string(), v.to_string())));
-        }
-
-        let mut url = url.clone();
-
-        // Push any additional parameters from the URL query string
-        let pairs = url
-            .query_pairs()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect::<Vec<(String, String)>>();
-
-        params.extend(pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())));
-
-        // Sort the parameters by key and if duplicate keys exist, sort by value
-        params.sort_by(|a, b| {
-            if a.0 == b.0 {
-                a.1.cmp(&b.1)
-            } else {
-                a.0.cmp(&b.0)
+    let response = match response {
+        Ok(response) => match response.status() {
+            StatusCode::OK => response.text().await,
+            StatusCode::BAD_REQUEST => return Err(SchoologyError::BadRequest),
+            StatusCode::UNAUTHORIZED => return Err(SchoologyError::Unauthorized),
+            StatusCode::FORBIDDEN => return Err(SchoologyError::Forbidden),
+            StatusCode::NOT_FOUND => return Err(SchoologyError::NotFound),
+            StatusCode::INTERNAL_SERVER_ERROR => return Err(SchoologyError::InternalServerError),
+            _ => {
+                debug!("Unknown status code: {}", response.status());
+                return Err(SchoologyError::Other(format!(
+                    "Unknown status code: {}",
+                    response.status()
+                )));
             }
-        });
+        },
+        Err(err) => return Err(SchoologyError::RequestError(err)),
+    };
 
-        // URL encode the parameters and join them with "&"
-        let params = params
-            .iter()
-            .map(|(k, v)| {
-                format!(
-                    "{}={}",
-                    urlencoding::encode(k).to_string(),
-                    urlencoding::encode(v).to_string()
-                )
-            })
-            .collect::<Vec<String>>()
-            .join("&");
+    let response = match response {
+        Ok(response) => response,
+        Err(err) => return Err(SchoologyError::RequestError(err)),
+    };
 
-        // URL encode the params
-        let params = urlencoding::encode(&params).to_string();
+    // Parse the response
+    let response: OauthRequestTokenResponse = match serde_urlencoded::from_str(&response) {
+        Ok(response) => response,
+        Err(err) => return Err(SchoologyError::SerdeURLError(err)),
+    };
 
-        // Strip the url of any query parameters, fragment, etc.
-        url.set_query(None);
-        url.set_fragment(None);
-        let url = urlencoding::encode(&url.to_string()).to_string();
+    Ok(response)
+}
 
-        // `http method + "&" + url + "&" + params`
-        let mut param_string =
-            String::with_capacity(request_method.len() + url.len() + params.len() + 2);
-        param_string.push_str(&request_method);
-        param_string.push_str("&");
-        param_string.push_str(&url);
-        param_string.push_str("&");
-        param_string.push_str(&params);
+#[derive(Deserialize, Debug)]
+pub struct OauthAccessTokenResponse {
+    /// The oauth token
+    pub oauth_token: String,
+    /// The oauth token secret
+    pub oauth_token_secret: String,
+}
 
-        // Generate the signing key `consumer_secret + "&" + oauth_token_secret`
-        let mut signing_key = String::with_capacity(
-            consumer_secret.len()
-                + self
-                    .oauth_token_secret
-                    .clone()
-                    .unwrap_or("".to_string())
-                    .len()
-                + 1,
-        );
-        signing_key.push_str(&consumer_secret);
-        signing_key.push_str("&");
-        signing_key.push_str(&self.oauth_token_secret.clone().unwrap_or("".to_string()));
+/// Sends a request to the Schoology API to get an oauth access token
+/// This uses the request_token's oauth_token and oauth_token_secret
+pub async fn get_oauth_access_token(
+    client: &SchoologyClient,
+    oauth_token: &str,
+    token_secret: &str,
+) -> Result<OauthAccessTokenResponse, SchoologyError> {
+    debug!("Getting oauth access token");
+    let response = client
+        .get(
+            "/v1/oauth/access_token",
+            SchoologyRequest::new().with_oauth_tokens(oauth_token, token_secret),
+        )
+        .await;
 
-        debug!("Signing key: {}", param_string);
-
-        // Generate the signature
-        let mut mac = match Hmac::<Sha256>::new_from_slice(signing_key.as_bytes()) {
-            Ok(m) => m,
-            Err(e) => {
-                warn!("Failed to generate HMAC-SHA256 signature: {}", e);
-                return "".to_string();
+    let response = match response {
+        Ok(response) => match response.status() {
+            StatusCode::OK => response.text().await,
+            StatusCode::BAD_REQUEST => return Err(SchoologyError::BadRequest),
+            StatusCode::UNAUTHORIZED => return Err(SchoologyError::Unauthorized),
+            StatusCode::FORBIDDEN => return Err(SchoologyError::Forbidden),
+            StatusCode::NOT_FOUND => return Err(SchoologyError::NotFound),
+            StatusCode::INTERNAL_SERVER_ERROR => return Err(SchoologyError::InternalServerError),
+            _ => {
+                debug!("Unknown status code: {}", response.status());
+                return Err(SchoologyError::Other(format!(
+                    "Unknown status code: {}",
+                    response.status()
+                )));
             }
-        };
-        mac.update(param_string.as_bytes());
+        },
 
-        // Base64 encode the signature
-        STANDARD_NO_PAD.encode(&mac.finalize().into_bytes())
-    }
+        Err(err) => return Err(SchoologyError::RequestError(err)),
+    };
 
-    /// Gets the OAuth 1.0a header for the request
-    pub fn get_header(
-        &self,
-        request_method: &str,
-        url: &Url,
-        body_params: Option<Vec<(&str, &str)>>,
-        consumer_key: &str,
-        consumer_secret: &str,
-    ) -> String {
-        // First let's generate the signature
-        let signature = self.generate_signature(
-            request_method,
-            url,
-            body_params,
-            consumer_key,
-            consumer_secret,
-        );
+    let response = match response {
+        Ok(response) => response,
+        Err(err) => return Err(SchoologyError::RequestError(err)),
+    };
 
-        // Now let's generate the header
-        let mut header = self.get_params(consumer_key);
+    // Parse the response
+    let response: OauthAccessTokenResponse = match serde_urlencoded::from_str(&response) {
+        Ok(response) => response,
+        Err(err) => return Err(SchoologyError::SerdeURLError(err)),
+    };
 
-        // Push the signature
-        header.push(("oauth_signature".to_string(), signature.to_string()));
-
-        // Sort the parameters by key and if duplicate keys exist, sort by value
-        header.sort_by(|a, b| {
-            if a.0 == b.0 {
-                a.1.cmp(&b.1)
-            } else {
-                a.0.cmp(&b.0)
-            }
-        });
-
-        // URL encode the parameters and join them with ","
-        let header_str = header
-            .iter()
-            .map(|(k, v)| {
-                format!(
-                    "{}=\"{}\"",
-                    urlencoding::encode(k).to_string(),
-                    urlencoding::encode(v).to_string()
-                )
-            })
-            .collect::<Vec<String>>()
-            .join(",");
-
-        // Add the "OAuth " prefix
-        let mut header = String::with_capacity(header.len() + 6);
-        header.push_str("OAuth ");
-        header.push_str(&header_str);
-
-        header
-    }
+    Ok(response)
 }

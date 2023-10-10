@@ -81,8 +81,7 @@ sea-orm-cli migrate up -d ./crates/migrations/
 Finaly, we will want to generate the code for the new table. To do this, run the following commands:
 
 ```bash
-rm -rf ./crates/orm/src
-sea-orm-cli generate entity --lib -o ./crates/orm/src
+rm -rf ./crates/orm/src && sea-orm-cli generate entity --lib -o ./crates/orm/src
 ```
 
 ## Migration Backwards Compatibility
