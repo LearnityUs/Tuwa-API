@@ -5,6 +5,6 @@ mod request_token;
 
 pub fn create_schoology_service() -> actix_web::Scope {
     web::scope("/schoology")
-        .service(request_token::get_request_token)
-        .service(login::post_login)
+        .route("/request_token", web::get().to(request_token::get_handler))
+        .route("/login", web::post().to(login::post_handler))
 }

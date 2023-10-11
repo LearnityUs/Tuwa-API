@@ -16,9 +16,9 @@ pub struct OAuth1AHeader {
 
     /* OAuth 1.0a parameters */
     /// Optional: OAuth 1.0a access token
-    pub oauth_token: Option<String>,
+    pub access_token: Option<String>,
     /// Optional: OAuth 1.0a token secret
-    pub oauth_token_secret: Option<String>,
+    pub access_token_secret: Option<String>,
     /// OAuth 1.0a nonce
     pub oauth_nonce: String,
     /// OAuth 1.0a timestamp
@@ -30,14 +30,14 @@ impl OAuth1AHeader {
     pub fn new(
         request_method: String,
         request_url: String,
-        oauth_token: Option<String>,
-        oauth_token_secret: Option<String>,
+        access_token: Option<String>,
+        access_token_secret: Option<String>,
     ) -> Self {
         Self {
             request_method,
             request_url,
-            oauth_token,
-            oauth_token_secret,
+            access_token,
+            access_token_secret,
             oauth_nonce: Uuid::new_v4().to_string(),
             oauth_timestamp: chrono::Utc::now().timestamp().to_string(),
         }
@@ -53,8 +53,8 @@ impl OAuth1AHeader {
             ("oauth_version", "1.0"),
         ];
 
-        if let Some(token) = &self.oauth_token {
-            params.push(("oauth_token", token));
+        if let Some(token) = &self.access_token {
+            params.push(("access_token", token));
         }
 
         // Convert the parameters to owned strings
@@ -129,11 +129,11 @@ impl OAuth1AHeader {
         param_string.push_str("&");
         param_string.push_str(&params);
 
-        // Generate the signing key `consumer_secret + "&" + oauth_token_secret`
+        // Generate the signing key `consumer_secret + "&" + access_token_secret`
         let mut signing_key = String::with_capacity(
             consumer_secret.len()
                 + self
-                    .oauth_token_secret
+                    .access_token_secret
                     .clone()
                     .unwrap_or("".to_string())
                     .len()
@@ -141,7 +141,7 @@ impl OAuth1AHeader {
         );
         signing_key.push_str(&consumer_secret);
         signing_key.push_str("&");
-        signing_key.push_str(&self.oauth_token_secret.clone().unwrap_or("".to_string()));
+        signing_key.push_str(&self.access_token_secret.clone().unwrap_or("".to_string()));
 
         debug!("Signing key: {}", param_string);
 

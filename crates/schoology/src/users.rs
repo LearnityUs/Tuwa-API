@@ -1,11 +1,15 @@
 use reqwest::StatusCode;
 use serde::Deserialize;
 
-use crate::{SchoologyClient, SchoologyError, SchoologyRequest, BASE_URL};
+use crate::{SchoologyClient, SchoologyRequest, SchoologyTokenPair, BASE_URL};
 
-#[derive(Debug)]
-pub struct UsersUserIdResponse {
-    pub user_id: String,
+pub enum GetUserIdError {
+    /// Not found
+    NotFound,
+    /// Unauthorized
+    Unauthorized,
+    /// Other
+    Other,
 }
 
 /// This get's the user id because schoology poorly designed their apo.
@@ -15,9 +19,8 @@ pub struct UsersUserIdResponse {
 /// This is a workaround for the schoology api.
 pub async fn get_user_id(
     client: &SchoologyClient,
-    oauth_token: &str,
-    oauth_token_secret: &str,
-) -> Result<UsersUserIdResponse, SchoologyError> {
+    token: &SchoologyTokenPair,
+) -> Result<usize, GetUserIdError> {
     debug!("Getting user id");
 
     // Make the request (ignore the redirect)
@@ -25,79 +28,73 @@ pub async fn get_user_id(
         .get(
             "/v1/users/me",
             SchoologyRequest::new()
-                .with_oauth_tokens(oauth_token, oauth_token_secret)
+                .with_access_tokens(token)
                 .redirects(false),
         )
         .await;
 
-    println!("response: {}, {}", oauth_token, oauth_token_secret);
-
     let response = match response {
         Ok(response) => match &response.status() {
-            &StatusCode::SEE_OTHER => response,
-            &StatusCode::BAD_REQUEST => return Err(SchoologyError::BadRequest),
-            &StatusCode::UNAUTHORIZED => return Err(SchoologyError::Unauthorized),
-            &StatusCode::FORBIDDEN => return Err(SchoologyError::Forbidden),
-            &StatusCode::NOT_FOUND => return Err(SchoologyError::NotFound),
-            &StatusCode::INTERNAL_SERVER_ERROR => return Err(SchoologyError::InternalServerError),
+            &StatusCode::SEE_OTHER => Ok(response),
+            &StatusCode::NOT_FOUND => {
+                debug!("User not found");
+                Err(GetUserIdError::NotFound)
+            }
+            &StatusCode::UNAUTHORIZED => {
+                debug!("Unauthorized: may be because the session token is expired");
+                Err(GetUserIdError::Unauthorized)
+            }
             _ => {
                 debug!("Unknown status code: {}", response.status());
-                return Err(SchoologyError::Other(format!(
-                    "Unknown status code: {}",
-                    response.status()
-                )));
+                return Err(GetUserIdError::Other);
             }
         },
-        Err(err) => return Err(SchoologyError::RequestError(err)),
-    };
+        Err(err) => {
+            warn!("Failed to get user id: {:?}", err);
+            return Err(GetUserIdError::Other);
+        }
+    }?;
 
     // Get the response headers
     let response = response.headers();
 
     // Get the redirect url
-    let location = match response.get("location") {
-        Some(location) => match location.to_str() {
-            Ok(location) => location,
-            Err(err) => {
-                warn!("Failed to get location header: {:?}", err);
-                return Err(SchoologyError::Other(format!(
-                    "Failed to get location header: {:?}",
-                    err
-                )));
-            }
-        },
-        None => {
-            debug!("No location header");
-            return Err(SchoologyError::Other("No location header".to_string()));
-        }
-    };
+    let location = response.get("location").ok_or_else(|| {
+        debug!("No location header");
+        GetUserIdError::Other
+    })?;
+
+    // Get the redirect url as a string
+    let location = location.to_str().map_err(|err| {
+        warn!("Failed to convert location header to string: {:?}", err);
+        GetUserIdError::Other
+    })?;
 
     // Get the user id from the redirect url (parse the path)
-    let url = match BASE_URL.join(location) {
-        Ok(url) => url,
-        Err(err) => {
+    let url = BASE_URL.join(location)
+        .map_err(|err| {
             warn!("Failed to parse redirect url: {:?}", err);
-            return Err(SchoologyError::Other(format!(
-                "Failed to parse redirect url: {:?}",
-                err
-            )));
-        }
-    };
+            GetUserIdError::Other
+        })?;
 
     // Get the user id from the path (the last segment)
     match url.path_segments() {
         Some(mut segments) => match segments.next_back() {
-            Some(user_id) => Ok(UsersUserIdResponse {
-                user_id: user_id.to_string(),
+            Some(user_id) => Ok(match user_id.parse() {
+                Ok(user_id) => user_id,
+                Err(err) => {
+                    warn!("Failed to parse user id: {:?}", err);
+                    return Err(GetUserIdError::Other);
+                }
             }),
             None => {
                 debug!("No user id in path");
-                Err(SchoologyError::Other("No user id in path".to_string()))
+                Err(GetUserIdError::Other)
             }
         },
         None => {
             debug!("No path segments");
-            Err(SchoologyError::Other("No path segments".to_string()))
+            Err(GetUserIdError::Other)
         }
     }
 }
@@ -112,13 +109,19 @@ pub struct SchoologyUser {
     pub picture_url: String,
 }
 
+pub enum GetSchoologyUserError {
+    /// Unauthorized
+    Unauthorized,
+    /// Other
+    Other
+}
+
 /// Gets a schoology user
 pub async fn get_schoology_user(
     client: &SchoologyClient,
-    oauth_token: &str,
-    oauth_token_secret: &str,
+    token: &SchoologyTokenPair,
     user_id: usize,
-) -> Result<SchoologyUser, SchoologyError> {
+) -> Result<SchoologyUser, GetSchoologyUserError> {
     debug!("Getting schoology user {}", user_id);
 
     // Make the request
@@ -126,40 +129,39 @@ pub async fn get_schoology_user(
         .get(
             &format!("/v1/users/{}", urlencoding::encode(&user_id.to_string())),
             SchoologyRequest::new()
-                .with_oauth_tokens(oauth_token, oauth_token_secret)
+                .with_access_tokens(token)
                 .redirects(false),
         )
         .await;
 
     let response = match response {
         Ok(response) => match &response.status() {
-            &StatusCode::OK => response.text().await,
-            &StatusCode::BAD_REQUEST => return Err(SchoologyError::BadRequest),
-            &StatusCode::UNAUTHORIZED => return Err(SchoologyError::Unauthorized),
-            &StatusCode::FORBIDDEN => return Err(SchoologyError::Forbidden),
-            &StatusCode::NOT_FOUND => return Err(SchoologyError::NotFound),
-            &StatusCode::INTERNAL_SERVER_ERROR => return Err(SchoologyError::InternalServerError),
+            &StatusCode::OK => response.text().await
+            .map_err(|err| {
+                warn!("Failed to get schoology user: {:?}", err);
+                GetSchoologyUserError::Other
+            }),
+            &StatusCode::UNAUTHORIZED => {
+                debug!("Unauthorized: may be because the session token is expired");
+                Err(GetSchoologyUserError::Unauthorized)
+            }
             _ => {
                 debug!("Unknown status code: {}", response.status());
-                return Err(SchoologyError::Other(format!(
-                    "Unknown status code: {}",
-                    response.status()
-                )));
+                Err(GetSchoologyUserError::Other)
             }
         },
-        Err(err) => return Err(SchoologyError::RequestError(err)),
-    };
-
-    let response = match response {
-        Ok(response) => response,
-        Err(err) => return Err(SchoologyError::RequestError(err)),
-    };
+        Err(err) => {
+            warn!("Failed to get schoology user: {:?}", err);
+            Err(GetSchoologyUserError::Other)
+        }
+    }?;
 
     // Parse the response
-    let response: SchoologyUser = match serde_json::from_str(&response) {
-        Ok(response) => response,
-        Err(err) => return Err(SchoologyError::SerdeJSONError(err)),
-    };
+    let response: SchoologyUser = serde_json::from_str(&response)
+        .map_err(|err| {
+            warn!("Failed to parse schoology user: {:?}", err);
+            GetSchoologyUserError::Other
+        })?;
 
     Ok(response)
 }

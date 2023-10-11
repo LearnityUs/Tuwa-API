@@ -10,6 +10,10 @@ pub struct Model {
     #[sea_orm(unique)]
     pub schoology_id: i32,
     #[sea_orm(column_type = "Text", nullable)]
+    pub first_name: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub last_name: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
     pub email: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub picture_url: Option<String>,

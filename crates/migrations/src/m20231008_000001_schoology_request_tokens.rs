@@ -18,7 +18,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(SchoologyRequestTokens::Token)
+                        ColumnDef::new(SchoologyRequestTokens::AccessToken)
                             .string()
                             .not_null(),
                     )
@@ -56,7 +56,7 @@ impl MigrationTrait for Migration {
 enum SchoologyRequestTokens {
     Table,
     Id,
-    Token,
+    AccessToken,
     TokenSecret,
     ExpiresAt,
 }

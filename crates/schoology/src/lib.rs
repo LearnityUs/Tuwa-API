@@ -15,6 +15,12 @@ pub struct SchoologyClient {
     pub consumer_secret: String,
 }
 
+/// A token pair representing a user's oauth token and token secret
+pub struct SchoologyTokenPair {
+    pub access_token: String,
+    pub token_secret: String,
+}
+
 /// A request to the Schoology API
 pub struct SchoologyRequest {
     /// Query parameters for the request
@@ -24,40 +30,12 @@ pub struct SchoologyRequest {
     /// For url encoded `application/x-www-form-urlencoded` requests
     pub oauth_body: Option<Vec<(String, String)>>,
     /// User token
-    pub oauth_token: Option<String>,
+    pub access_token: Option<String>,
     /// User token secret
-    pub oauth_token_secret: Option<String>,
+    pub token_secret: Option<String>,
 
     /// Whether or not to follow redirects
     pub redirects: bool,
-}
-
-/// Error types for the Schoology API
-#[derive(Debug)]
-pub enum SchoologyError {
-    /* Request errors */
-    /// Request error
-    RequestError(reqwest::Error),
-    /// Invalid URL
-    SerdeJSONError(serde_json::Error),
-    /// Invalid URL
-    SerdeURLError(serde_urlencoded::de::Error),
-
-    /* Schoology API errors */
-    /// 400 Bad Request
-    BadRequest,
-    /// 401 Unauthorized
-    Unauthorized,
-    /// 403 Forbidden
-    Forbidden,
-    /// 404 Not Found
-    NotFound,
-    /// 500 Internal Server Error
-    InternalServerError,
-
-    /* Other errors */
-    /// Other error
-    Other(String),
 }
 
 impl SchoologyRequest {
@@ -67,8 +45,8 @@ impl SchoologyRequest {
             query: None,
             body: None,
             oauth_body: None,
-            oauth_token: None,
-            oauth_token_secret: None,
+            access_token: None,
+            token_secret: None,
             redirects: true,
         }
     }
@@ -97,9 +75,9 @@ impl SchoologyRequest {
     }
 
     /// Add an oauth token to the request
-    pub fn with_oauth_tokens(mut self, oauth_token: &str, oauth_token_secret: &str) -> Self {
-        self.oauth_token = Some(oauth_token.to_string());
-        self.oauth_token_secret = Some(oauth_token_secret.to_string());
+    pub fn with_access_tokens(mut self, token: &SchoologyTokenPair) -> Self {
+        self.access_token = Some(token.access_token.clone());
+        self.token_secret = Some(token.token_secret.clone());
         self
     }
 
@@ -144,8 +122,8 @@ impl SchoologyClient {
         let oauth_header = proto::OAuth1AHeader::new(
             "GET".to_string(),
             url.to_string(),
-            request.oauth_token,
-            request.oauth_token_secret,
+            request.access_token,
+            request.token_secret,
         );
 
         // Generate the signature

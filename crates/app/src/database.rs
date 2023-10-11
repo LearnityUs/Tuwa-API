@@ -4,8 +4,6 @@ use sea_orm::{
     ColumnTrait, ConnectOptions, Database, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
-use crate::v1::schoology;
-
 static CLIENT: OnceCell<DatabaseConnection> = OnceCell::new();
 
 pub fn get_db_client() -> &'static DatabaseConnection {

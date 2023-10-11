@@ -25,6 +25,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
+                    .col(ColumnDef::new(SchoologyLink::FirstName).text())
+                    .col(ColumnDef::new(SchoologyLink::LastName).text())
                     .col(ColumnDef::new(SchoologyLink::Email).text())
                     .col(ColumnDef::new(SchoologyLink::PictureUrl).text())
                     .col(ColumnDef::new(SchoologyLink::AccessToken).text())
@@ -67,6 +69,8 @@ enum SchoologyLink {
     /// FK: User.id
     UserId,
     SchoologyId,
+    FirstName,
+    LastName,
     Email,
     PictureUrl,
     AccessToken,
