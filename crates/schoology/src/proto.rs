@@ -54,7 +54,7 @@ impl OAuth1AHeader {
         ];
 
         if let Some(token) = &self.access_token {
-            params.push(("access_token", token));
+            params.push(("oauth_token", token));
         }
 
         // Convert the parameters to owned strings

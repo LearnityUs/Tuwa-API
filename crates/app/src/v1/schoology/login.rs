@@ -1,3 +1,5 @@
+//! [Docs](/docs/api/v1/schoology/login)
+
 use schoology::{oauth, users, SchoologyTokenPair};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -22,9 +24,10 @@ pub struct Request {
 
 #[derive(Serialize)]
 pub struct Response {
-    pub id: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_token: Option<String>,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -139,31 +142,38 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
     }
     .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?;
 
-    Ok(Response {
-        id: link.user_id as usize,
-        session_token: match req.data.login {
-            true => {
-                // User ip
-                let ip = req.http_request.connection_info();
+    let session = match req.data.login {
+        true => {
+            // User ip
+            let ip = req.http_request.connection_info();
 
-                // Create a new session
-                let session =
-                    utils::sessions::create(&db_client, link.user_id as i32, ip.host().to_string())
-                        .await
-                        .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?;
-
-                Some(
-                    utils::sessions::encode(utils::sessions::AccessToken::user(
-                        session.id,
-                        session.token,
-                    ))
+            // Create a new session
+            let session =
+                utils::sessions::create(&db_client, link.user_id as i32, ip.host().to_string())
                     .await
-                    .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?,
-                )
-            }
-            false => None,
+                    .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?;
+
+            Some(session)
+        }
+        false => None,
+    };
+
+    Ok(Response {
+        session_token: match session {
+            Some(ref session) => Some(
+                utils::sessions::encode(utils::sessions::AccessToken::user(
+                    session.id,
+                    session.token.clone()
+                ))
+                .await
+                .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?,
+            ),
+            None => None,
         },
-        expires_at: chrono::Utc::now() + chrono::Duration::days(1),
+        session_expires_at: match session {
+            Some(ref session) => Some(session.expires_at.and_utc()),
+            None => None
+        }
     })
 }
 

@@ -1,5 +1,5 @@
 use reqwest::StatusCode;
-use serde::{de, Deserialize};
+use serde::Deserialize;
 use serde_urlencoded;
 
 use crate::{SchoologyClient, SchoologyRequest, SchoologyTokenPair};
@@ -109,7 +109,7 @@ pub async fn get_oauth_access_token(
                 AccessTokenError::Other
             }),
             StatusCode::UNAUTHORIZED => {
-                debug!("Token is invalid / expired");
+                debug!("Token is invalid / expired or application not authorized");
                 Err(AccessTokenError::Unauthorized)
             }
             _ => {
