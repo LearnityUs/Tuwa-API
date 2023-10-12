@@ -33,18 +33,22 @@ steps:
       - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
       - '--set-secrets=DATABASE_URL=postgres-db-url:latest,SCHOOLOGY_CONSUMER_KEY=schoology-consumer-key:1,SCHOOLOGY_CONSUMER_SECRET=schoology-consumer-secret:1'
       - '--set-env-vars=RUST_LOG=info,CORS_ORIGIN=*.tuwa.app'
-      - '--network=default'
+      - '--max-instances=10'
+      - '--min-instances=0'
+      - '--ingress=internal'
+      - '--vpc-connector=default'
   # Deploy & exec migrations to Cloud Run Jobs
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
       - 'run'
+      - 'beta'
       - 'jobs'
       - 'deploy'
       - 'tuwa-api-migrations'
       - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
       - '--set-secrets=DATABASE_URL=postgres-db-url:latest'
-      - '--network=default'
+      - '--vpc-connector=default'
       - '--execute-now'
 
 images:
