@@ -1,5 +1,8 @@
 use once_cell::sync::OnceCell;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use orm::{schoology_request_tokens, sessions};
+use sea_orm::{
+    ColumnTrait, ConnectOptions, Database, DatabaseConnection, EntityTrait, QueryFilter,
+};
 
 static CLIENT: OnceCell<DatabaseConnection> = OnceCell::new();
 
@@ -36,4 +39,34 @@ pub async fn create_db_client(
     CLIENT
         .set(db)
         .map_err(|_| "Failed to set database client".to_string())
+}
+
+pub async fn cronjob_clear_old() {
+    info!("Clearing expired Schoology request tokens...");
+
+    let db_client = get_db_client();
+
+    // Delere all the expired tokens
+    let result = schoology_request_tokens::Entity::delete_many()
+        .filter(schoology_request_tokens::Column::ExpiresAt.lt(chrono::Utc::now()))
+        .exec(db_client)
+        .await;
+
+    if let Err(err) = result {
+        error!(
+            "Failed to delete expired Schoology request tokens: {:?}",
+            err
+        );
+    }
+
+    info!("Clearing expired sessions...");
+
+    let result = sessions::Entity::delete_many()
+        .filter(sessions::Column::ExpiresAt.lt(chrono::Utc::now()))
+        .exec(db_client)
+        .await;
+
+    if let Err(err) = result {
+        error!("Failed to delete expired sessions: {:?}", err);
+    }
 }

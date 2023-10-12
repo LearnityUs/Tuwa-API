@@ -9,7 +9,8 @@ where
     Error: Serialize,
 {
     Success(SuccessResponseData<Data>),
-    Error(ErrorResponseData<Error>),
+    RequestError(ErrorResponseStatusData),
+    RouteError(ErrorResponseData<Error>),
 }
 
 impl<Data, Error> ResponseData<Data, Error>
@@ -23,12 +24,13 @@ where
     }
 
     /// If the request was unsuccessful, return an error response.
-    pub fn error(error: Error, message: Option<String>, status: ErrorResponseStatus) -> Self {
-        ResponseData::Error(ErrorResponseData {
-            error: status,
-            message,
-            data: error,
-        })
+    pub fn error(fault: ErrorFault, data: Error) -> Self {
+        ResponseData::RouteError(ErrorResponseData { data, fault })
+    }
+
+    /// Route error
+    pub fn route_error(data: ErrorResponseStatus) -> Self {
+        ResponseData::RequestError(ErrorResponseStatusData { status: data })
     }
 
     /// Convert the response to a JSON string.
@@ -42,16 +44,18 @@ where
 
         let mut response = match self {
             ResponseData::Success(_) => actix_web::HttpResponse::Ok(),
-            ResponseData::Error(error) => match error.error {
+            ResponseData::RequestError(error) => match error.status {
                 ErrorResponseStatus::NotFound => actix_web::HttpResponse::NotFound(),
-                ErrorResponseStatus::AuthenticationRequired => {
-                    actix_web::HttpResponse::Unauthorized()
-                }
-                ErrorResponseStatus::CredentialsRequired => actix_web::HttpResponse::Forbidden(),
+                ErrorResponseStatus::Unauthorized => actix_web::HttpResponse::Unauthorized(),
+                ErrorResponseStatus::Forbidden => actix_web::HttpResponse::Forbidden(),
                 ErrorResponseStatus::BadRequest => actix_web::HttpResponse::BadRequest(),
                 ErrorResponseStatus::InternalServerError => {
                     actix_web::HttpResponse::InternalServerError()
                 }
+            },
+            ResponseData::RouteError(error) => match error.fault {
+                ErrorFault::Client => actix_web::HttpResponse::BadRequest(),
+                ErrorFault::Server => actix_web::HttpResponse::InternalServerError(),
             },
         };
 
@@ -71,12 +75,12 @@ where
 
 #[derive(Serialize)]
 pub enum ErrorResponseStatus {
-    /// Self-explanatory; the requested resource was not found.
+    /// Self-explanatory; the requested resource was not found. (Used only when a path parameter is used).
     NotFound,
     /// The user is not authenticated.
-    AuthenticationRequired,
+    Unauthorized,
     /// The user is authenticated, but does not have the required credentials.
-    CredentialsRequired,
+    Forbidden,
     /// The request was malformed.
     BadRequest,
     /// The server encountered an internal error.
@@ -84,11 +88,21 @@ pub enum ErrorResponseStatus {
 }
 
 #[derive(Serialize)]
+pub struct ErrorResponseStatusData {
+    pub status: ErrorResponseStatus,
+}
+
+pub enum ErrorFault {
+    Client,
+    Server,
+}
+
+#[derive(Serialize)]
 pub struct ErrorResponseData<Data>
 where
     Data: Serialize,
 {
-    pub error: ErrorResponseStatus,
-    pub message: Option<String>,
+    #[serde(skip)]
+    pub fault: ErrorFault,
     pub data: Data,
 }
