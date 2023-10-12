@@ -71,11 +71,10 @@ pub async fn get_user_id(
     })?;
 
     // Get the user id from the redirect url (parse the path)
-    let url = BASE_URL.join(location)
-        .map_err(|err| {
-            warn!("Failed to parse redirect url: {:?}", err);
-            GetUserIdError::Other
-        })?;
+    let url = BASE_URL.join(location).map_err(|err| {
+        warn!("Failed to parse redirect url: {:?}", err);
+        GetUserIdError::Other
+    })?;
 
     // Get the user id from the path (the last segment)
     match url.path_segments() {
@@ -113,7 +112,7 @@ pub enum GetSchoologyUserError {
     /// Unauthorized
     Unauthorized,
     /// Other
-    Other
+    Other,
 }
 
 /// Gets a schoology user
@@ -136,8 +135,7 @@ pub async fn get_schoology_user(
 
     let response = match response {
         Ok(response) => match &response.status() {
-            &StatusCode::OK => response.text().await
-            .map_err(|err| {
+            &StatusCode::OK => response.text().await.map_err(|err| {
                 warn!("Failed to get schoology user: {:?}", err);
                 GetSchoologyUserError::Other
             }),
@@ -157,11 +155,10 @@ pub async fn get_schoology_user(
     }?;
 
     // Parse the response
-    let response: SchoologyUser = serde_json::from_str(&response)
-        .map_err(|err| {
-            warn!("Failed to parse schoology user: {:?}", err);
-            GetSchoologyUserError::Other
-        })?;
+    let response: SchoologyUser = serde_json::from_str(&response).map_err(|err| {
+        warn!("Failed to parse schoology user: {:?}", err);
+        GetSchoologyUserError::Other
+    })?;
 
     Ok(response)
 }

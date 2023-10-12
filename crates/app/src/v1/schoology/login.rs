@@ -163,7 +163,7 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
             Some(ref session) => Some(
                 utils::sessions::encode(utils::sessions::AccessToken::user(
                     session.id,
-                    session.token.clone()
+                    session.token.clone(),
                 ))
                 .await
                 .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?,
@@ -172,8 +172,8 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
         },
         session_expires_at: match session {
             Some(ref session) => Some(session.expires_at.and_utc()),
-            None => None
-        }
+            None => None,
+        },
     })
 }
 
