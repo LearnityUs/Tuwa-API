@@ -37,6 +37,7 @@ steps:
       - '--min-instances=0'
       - '--ingress=internal'
       - '--vpc-connector=default'
+      - '--region=us-west1'
   # Deploy & exec migrations to Cloud Run Jobs
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
@@ -50,6 +51,7 @@ steps:
       - '--set-secrets=DATABASE_URL=postgres-db-url:latest'
       - '--vpc-connector=default'
       - '--execute-now'
+      - '--region=us-west1'
 
 images:
   - 'us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
