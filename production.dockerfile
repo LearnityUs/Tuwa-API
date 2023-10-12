@@ -10,6 +10,8 @@ RUN cargo install --path ./crates/app/
 FROM ubuntu:latest
 COPY --from=builder /usr/local/cargo/bin/app /usr/local/bin/app
 
+RUN apt-get update && apt install -y openssl
+
 EXPOSE 8080
 
 CMD ["app"]
