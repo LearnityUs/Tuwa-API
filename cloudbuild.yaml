@@ -1,0 +1,52 @@
+steps:
+  # Docker build production
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-tag=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
+      - '--file=production.dockerfile'
+      - '.'
+  # Docker build migrations
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-tag=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
+      - '--file=migrations.dockerfile'
+      - '.'
+  # Push production image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
+  # Push migrations image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
+  # Deploy production to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'tuwa-api-production'
+      - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
+      - '--set-secrets=DATABASE_URL=postgres-db-url:latest,SCHOOLOGY_CONSUMER_KEY=schoology-consumer-key:1,SCHOOLOGY_CONSUMER_SECRET=schoology-consumer-secret:1'
+      - '--set-env-vars=RUST_LOG=info,CORS_ORIGIN=*.tuwa.app'
+      - '--network=default'
+  # Deploy & exec migrations to Cloud Run Jobs
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - 'tuwa-api-migrations'
+      - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
+      - '--set-secrets=DATABASE_URL=postgres-db-url:latest'
+      - '--network=default'
+      - '--execute-now'
+
+images:
+  - 'us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
+  - 'us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
