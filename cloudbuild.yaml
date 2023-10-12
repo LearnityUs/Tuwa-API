@@ -38,9 +38,9 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
+      - 'beta'
       - 'run'
       - 'jobs'
-      - 'deploy'
       - 'tuwa-api-migrations'
       - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
       - '--set-secrets=DATABASE_URL=postgres-db-url:latest'
