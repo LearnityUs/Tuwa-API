@@ -3,14 +3,14 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '-tag=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
+      - '--tag=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
       - '--file=production.dockerfile'
       - '.'
   # Docker build migrations
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '-tag=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
+      - '--tag=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
       - '--file=migrations.dockerfile'
       - '.'
   # Push production image
@@ -33,6 +33,7 @@ steps:
       - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-production:$COMMIT_SHA'
       - '--set-secrets=DATABASE_URL=postgres-db-url:latest,SCHOOLOGY_CONSUMER_KEY=schoology-consumer-key:1,SCHOOLOGY_CONSUMER_SECRET=schoology-consumer-secret:1'
       - '--set-env-vars=RUST_LOG=info,CORS_ORIGIN=*.tuwa.app'
+      - '--region=us-west1'
       - '--network=default'
   # Deploy & exec migrations to Cloud Run Jobs
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -45,6 +46,7 @@ steps:
       - '--image=us-west1-docker.pkg.dev/${PROJECT_ID}/tuwa-api/tuwa-api-migrations:$COMMIT_SHA'
       - '--set-secrets=DATABASE_URL=postgres-db-url:latest'
       - '--network=default'
+      - '--region=us-west1'
       - '--execute-now'
 
 images:
