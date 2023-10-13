@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::{
     database::get_db_client,
+    schoology::get_schoology_client,
     utils,
     v1::{types::ErrorResponseStatus, RequestData, ResponseError},
     v1_get,
@@ -40,17 +41,26 @@ async fn get(data: RequestData<()>) -> Result<Response, ResponseError<Error>> {
         .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?
         .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?;
 
-    // Return the response
+    // Fetch the user from Schoology
+    let schoology_client = get_schoology_client();
+
+    let user = schoology::users::get_schoology_user(
+        &schoology_client,
+        &schoology::SchoologyTokenPair {
+            access_token: user.access_token
+                .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
+            token_secret: user.token_secret
+                .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
+        },
+        user.schoology_id as usize
+    )
+    .await
+    .map_err(|_| ResponseError::ServerError(Error::SchoologyNotLinked))?;
+
     Ok(Response {
-        first_name: user
-            .first_name
-            .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
-        last_name: user
-            .last_name
-            .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
-        picture_url: user
-            .picture_url
-            .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
+        first_name: user.name_first,
+        last_name: user.name_last,
+        picture_url: user.picture_url,
     })
 }
 
