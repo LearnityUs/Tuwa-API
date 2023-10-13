@@ -47,12 +47,14 @@ async fn get(data: RequestData<()>) -> Result<Response, ResponseError<Error>> {
     let user = schoology::users::get_schoology_user(
         &schoology_client,
         &schoology::SchoologyTokenPair {
-            access_token: user.access_token
+            access_token: user
+                .access_token
                 .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
-            token_secret: user.token_secret
+            token_secret: user
+                .token_secret
                 .ok_or(ResponseError::ServerError(Error::SchoologyNotLinked))?,
         },
-        user.schoology_id as usize
+        user.schoology_id as usize,
     )
     .await
     .map_err(|_| ResponseError::ServerError(Error::SchoologyNotLinked))?;
