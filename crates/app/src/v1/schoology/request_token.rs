@@ -1,3 +1,4 @@
+//! /docs/api/v1/schoology/request_token
 use schoology::oauth::get_oauth_request_token;
 use serde::Serialize;
 use uuid::Uuid;

@@ -1,4 +1,4 @@
-//! [Docs](/docs/api/v1/schoology/login)
+//! /docs/api/v1/schoology/login
 
 use schoology::{oauth, users, SchoologyTokenPair};
 use serde::{Deserialize, Serialize};
@@ -8,16 +8,13 @@ use crate::{
     database::get_db_client,
     schoology::get_schoology_client,
     utils,
-    v1::{
-        types::{ErrorResponseStatus, ResponseData},
-        RequestData, ResponseError,
-    },
+    v1::{RequestData, ResponseError},
     v1_post,
 };
 
 #[derive(Deserialize)]
 pub struct Request {
-    pub uuid: Uuid,
+    pub id: Uuid,
     pub signature: String,
     pub login: bool, // The user may need to reauthorize the app but they are already logged in
 }
@@ -36,7 +33,7 @@ enum Error {
     DatabaseError,
     InvalidFlowId,
     InvalidSignature,
-    ApplicationNotAuthorized,
+    SchoologyApplicationNotAuthorized,
 }
 
 async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error>> {
@@ -45,7 +42,7 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
     let db_client = get_db_client();
 
     // Find the uuid in the database (if not expired)
-    let request_token = utils::schoology_request_tokens::get(&db_client, req.data.uuid)
+    let request_token = utils::schoology_request_tokens::get(&db_client, req.data.id)
         .await
         .map_err(|_| ResponseError::ServerError(Error::DatabaseError))?
         .ok_or(ResponseError::ClientError(Error::InvalidFlowId))?;
@@ -78,7 +75,7 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
     // Get the access token
     let token = oauth::get_oauth_access_token(&schoology_client, &token)
         .await
-        .map_err(|_| ResponseError::ClientError(Error::ApplicationNotAuthorized))?;
+        .map_err(|_| ResponseError::ClientError(Error::SchoologyApplicationNotAuthorized))?;
 
     // Delete the request token from the database
     utils::schoology_request_tokens::delete(&db_client, request_token.id)
@@ -109,10 +106,10 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
             utils::schoology_link::update(
                 &db_client,
                 user.user_id as i32,
+                Some(user_info.name_first),
+                Some(user_info.name_last),
                 Some(user_info.primary_email),
                 Some(user_info.picture_url),
-                Some(token.access_token.to_string()),
-                Some(token.token_secret.to_string()),
                 Some(token.access_token.to_string()),
                 Some(token.token_secret.to_string()),
             )
@@ -130,10 +127,10 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
                 &db_client,
                 user.id,
                 schoology_id as i32,
+                Some(user_info.name_first),
+                Some(user_info.name_last),
                 Some(user_info.primary_email),
                 Some(user_info.picture_url),
-                Some(token.access_token.to_string()),
-                Some(token.token_secret.to_string()),
                 Some(token.access_token.to_string()),
                 Some(token.token_secret.to_string()),
             )

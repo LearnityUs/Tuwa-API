@@ -1,13 +1,33 @@
 use orm::schoology_link;
-use sea_orm::{ActiveModelTrait, ActiveValue, DatabaseConnection, EntityTrait};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+};
 
-/// Gets a Schoology link from the database
+/// Gets a Schoology link from the database by the schhology id
 pub async fn get(
     db_client: &DatabaseConnection,
     id: i32,
 ) -> Result<Option<schoology_link::Model>, ()> {
     // Query the database
     match schoology_link::Entity::find_by_id(id)
+        .one(db_client)
+        .await
+        .map_err(|err| {
+            debug!("Failed to get user: {:?}", err);
+        })? {
+        Some(user) => Ok(Some(user)),
+        None => return Ok(None),
+    }
+}
+
+/// Gets a Schoology link from the database by the user id
+pub async fn get_by_user_id(
+    db_client: &DatabaseConnection,
+    user_id: i32,
+) -> Result<Option<schoology_link::Model>, ()> {
+    // Query the database
+    match schoology_link::Entity::find()
+        .filter(schoology_link::Column::UserId.eq(user_id))
         .one(db_client)
         .await
         .map_err(|err| {
