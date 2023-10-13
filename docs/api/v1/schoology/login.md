@@ -24,7 +24,7 @@ This endpoint will return a `RouteError` if the request is unsuccessful. The `da
  - DatabaseError: `Server Fault` - This is a generic error that is returned when the database returns an error that is not handled by the API.
  - InvalidFlowId: `Client Fault` - This is returned when the id returned from `/api/v1/schoology/request_token` is invalid / expired.
  - InvalidSignature: `Client Fault` - This is returned when the signature does not match the id returned from `/api/v1/schoology/request_token`.
- - ApplicationNotAuthorized: `Client Fault` - This is returned when the application is not authorized to access the user's schoology account.
+ - SchoologyApplicationNotAuthorized: `Client Fault` - This is returned when the application is not authorized to access the user's schoology account.
 
 ```json
 {

@@ -33,7 +33,7 @@ enum Error {
     DatabaseError,
     InvalidFlowId,
     InvalidSignature,
-    ApplicationNotAuthorized,
+    SchoologyApplicationNotAuthorized,
 }
 
 async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error>> {
@@ -75,7 +75,7 @@ async fn post(req: RequestData<Request>) -> Result<Response, ResponseError<Error
     // Get the access token
     let token = oauth::get_oauth_access_token(&schoology_client, &token)
         .await
-        .map_err(|_| ResponseError::ClientError(Error::ApplicationNotAuthorized))?;
+        .map_err(|_| ResponseError::ClientError(Error::SchoologyApplicationNotAuthorized))?;
 
     // Delete the request token from the database
     utils::schoology_request_tokens::delete(&db_client, request_token.id)
