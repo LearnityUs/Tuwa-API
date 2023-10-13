@@ -43,7 +43,6 @@ steps:
     entrypoint: 'gcloud'
     args:
       - 'run'
-      - 'beta'
       - 'jobs'
       - 'create'
       - 'tuwa-api-migrations'
